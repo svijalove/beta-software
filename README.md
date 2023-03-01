@@ -15,5 +15,3 @@ To download **Svija Sync** and **Svija Tools**, click on this link:
 Once you've downloaded the DMG, you can install the programs normally.
 
 See [tech.svija.love/install](https://tech.svija.love/install) for more detailed instructions.
-
-https://github.com/svijalove/beta-software/blob/releases/download/1.0.6/Svija.Install.Beta.dmg
