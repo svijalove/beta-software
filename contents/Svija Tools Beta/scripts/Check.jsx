@@ -388,7 +388,7 @@ function fixPlacedImage(img){
   if (!img.layer.printable) return [];
 
   try{ var thisFolder = img.file.path; } // not sure what would cause this
-	catch(e){ return []; }                         // just in case
+	catch(e){ return []; }                 // just in case
 
   var currentFolder = Folder(app.activeDocument.path);
   var linksFolder   = currentFolder + '/Links';
@@ -714,6 +714,7 @@ function getAlertDepth(img){
   alert('Group depth: '+obj.absoluteZOrderPosition);
   return obj.absoluteZOrderPosition;
 }
+
 
 //:::::::::::::::::::::::::::::::::::::::: to add later
 

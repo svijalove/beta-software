@@ -132,7 +132,7 @@ finalFeedback(count);
 
 //:::::::::::::::::::::::::::::::::::::::: main functions
 
-/*———————————————————————————————————————— saveSVG(doc, abName)
+/*———————————————————————————————————————— saveSVG(doc, canvas)
 
   saves file as SVG:
 
@@ -147,6 +147,7 @@ finalFeedback(count);
   - else save using artboards */
 
 function saveSVG(doc, canvas){
+  if (doc.artboards.length == 1) canvas = true;
 
   var layerInfo = deleteNonPrintingLayers(doc); // info about locked & visible
 
@@ -395,8 +396,11 @@ function hasPlaced(doc){
 
   for (var x=0; x<doc.placedItems.length; x++){
 
-    var imgPath = String(doc.placedItems[0].file); // ~/Captures/capture%2029.jpg
-    
+    var img = doc.placedItems[0];
+    if (!img.layer.printable) continue;
+
+    var imgPath = String(img.file); // ~/Captures/capture%2029.jpg
+
     // if image path is shorter, image can't be in Links folder
     if (imgPath.length < linksPath.length+4) 
       return doc.name + ' contains external image(s) — please run "Check & Repair"';
