@@ -10,7 +10,7 @@ You can find the most recent versions of Svija software on this page.
 
 To download **Svija Sync** and **Svija Tools**, click on this link:
 
-> [DOWNLOAD SVIJA INSTALL BETA](../../releases/download/1.0.6/Svija.Install.Beta.dmg)
+> [DOWNLOAD SVIJA INSTALL BETA](../../releases/download/1.0.6.1/Svija.Install.Beta.dmg)
 
 Once you've downloaded the DMG, you can install the programs normally.
 
