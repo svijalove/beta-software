@@ -52,6 +52,13 @@ program:{
   var d = new Date();
   var env_start_ms = d.getTime();
 
+//———————————————————————————————————————— no open docs
+
+if (app.documents.length < 1){
+  alert('No open documents.');
+  break program;
+}
+
 /*———————————————————————————————————————— get param if standalone
 
     save, all or canvas */

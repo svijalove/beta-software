@@ -59,6 +59,13 @@ var msgSrcOpen = 'Error: source document open.\nScript canceled.';
 
 program:{
 
+//———————————————————————————————————————— no open docs
+
+if (app.documents.length < 1){
+  alert('No open documents.');
+  break program;
+}
+
 //———————————————————————————————————————— select source file
 
   var srcPath = File.openDialog(msgSelect);

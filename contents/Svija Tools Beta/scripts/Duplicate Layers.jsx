@@ -41,6 +41,19 @@
 
 //:::::::::::::::::::::::::::::::::::::::: program
 
+/*———————————————————————————————————————— ▼ program:{
+
+    can use "break program;" to quit at any moment */
+
+program:{
+
+//———————————————————————————————————————— no open docs
+
+if (app.documents.length < 1){
+  alert('No open documents.');
+  break program;
+}
+
 /*———————————————————————————————————————— user messages */
 
 var msgSingle     = 'Only One Document is Open\n' +
@@ -98,6 +111,11 @@ else if (confirm(msgConfirm)){
 }
 
 if (finalMessage != '') alert(finalMessage);
+
+//———————————————————————————————————————— ▲ } // program 
+
+} // program 
+
 
 
 //:::::::::::::::::::::::::::::::::::::::: main functions

@@ -61,6 +61,13 @@ program:{ // can use "return" to quit at any time
   var d = new Date();
   var env_start_ms = d.getTime();
 
+//———————————————————————————————————————— no open docs
+
+if (app.documents.length < 1){
+  alert('No open documents.');
+  break program;
+}
+
 //———————————————————————————————————————— initialization
 
 var env_repairs        = [];   // repaired messages for user
@@ -309,64 +316,83 @@ function hasLinks(doc){
 
 function fixEmbeddedImage(img){
  
-  // we don't care about non-printing information layers
-  if (!img.layer.printable) return [];
+  if (!img.layer.printable) return []; // we don't care about non-printing information layers
 
-  //———————————————————— get access to layer
+  // setup
 
-  app.activeDocument.activeLayer         = img.layer; // make layer active
-  app.activeDocument.activeLayer.visible = true;      // and visible
+  var activeLayer  = img.layer;
+  var activeParent = img.parent;
 
-  //———————————————————— check if original is findable
+  // save state
+
+  var activeLayerLocked   = img.layer.locked;
+  var activeParentLocked  = img.parent.locked;
+
+  var activeLayerVisible  = img.layer.visible;
+  var activeParentVisible = img.parent.visible;
+
+  if (img.name == '') var imgName = 'Missing image';
+  else var imgName = img.name;
+
+  var imgDepth    = img.absoluteZOrderPosition;
+  var parentLocks = unlockHierarchy(img);
+
+  // is original findable?
+
+  var fileMissing
 
 	try{
     var newName = img.file;   // usually contains original file, even if image is embedded
     var newFile = new File(newName);
-    var fileMissing = false;
+    fileMissing = false;
 	}
-	catch(e){ var fileMissing = true; }
+	catch(e){ fileMissing = true; }
 
-  //———————————————————— original is missing: mark it and get out
+  if (img.status != 'RasterLinkState.DATAFROMFILE') // this is a precaution
+    fileMissing = true;                             // not encountered so far
 
-  // this is a precaution, not encountered so far
-  if (img.status != 'RasterLinkState.DATAFROMFILE')
-    fileMissing = true;
+  // original is missing so highlight it
 
-  if(fileMissing){
-    var rec = drawYellowRectangle(img);
-    var msg = '(highlighted)';
+  if(fileMissing)
+    var newImg = drawYellowRectangle(img);
 
-    if (img.name != '') var neme =  img.name;
-    else var neme = 'Missing image';
+  // original is found so re-link it
 
-    return [neme, false, msg];
+  else{
+    var newImg  = activeParent.placedItems.add();
+    newImg.file = newFile;
+  
+    for (var key in img){
+      try{ newImg[key] = img[key]; }
+      catch(e){}
+    }
+   
+    var moveMatrix  = app.getScaleMatrix(100,-100);
+    var totalMatrix = concatenateRotationMatrix(moveMatrix, 10);
+    newImg.transform(moveMatrix);
   }
 
-  //———————————————————— re-link original file
+  // correct depth of image
 
-  var placedImage  = app.activeDocument.activeLayer.placedItems.add();
-  placedImage.file = newFile;
+  while (newImg.absoluteZOrderPosition > imgDepth+1)
+    newImg.zOrder(ZOrderMethod.SENDBACKWARD); 
 
-  for (var key in img)
-    if (key != 'parent' && key != 'embedded' && key != 'wrapOffset' && key != 'wrapInside')
-      placedImage[key] = img[key];
- 
-  // objects were appearing upside down
-  // has bug if image already transformed
+  // clean up & prepare response
+  if (fileMissing){
+    var msg = '(highlighted)';
+    var success = false;
+    newImg.name = '▼ embedded image';
+  }
+  else{
+    var msg = 'file relinked';
+    var success = true;
+    newImg.name = imgName;
+    img.remove();
+  }
 
-  // need to get placedImage matrix
 
-  var moveMatrix  = app.getScaleMatrix(100,-100);
-  var totalMatrix = concatenateRotationMatrix(moveMatrix, 10);
-
-  placedImage.transform(moveMatrix);
-
-  // remove the embedded image
-  img.remove();
-
-  var msg = 'file relinked';
-  return [placedImage.file.name, true, msg];
-
+  relockHierarchy(parentLocks)
+  return [imgName, success, msg];
 }
 
 /*———————————————————————————————————————— fixPlacedImage(obj)
@@ -520,51 +546,16 @@ function drawYellowRectangle(obj){
 
   // unlock activeLayer
 
-  var thisLayer = app.activeDocument.activeLayer;
-  var layers = 1;
-
-  var layerLocks = [[thisLayer, thisLayer.locked, thisLayer.name]];
-  thisLayer.locked = false;
-
-  while (thisLayer.parent.typename == 'Layer'){
-    thisLayer = thisLayer.parent
-    layerLocks[layers] = [thisLayer, thisLayer.locked, thisLayer.name];
-    layers += 1;
-  }
-
-  for(var x=0; x<layers; x++)
-    layerLocks[x][0].locked = false;
-
   // isg81 -top, left, width, height
-  var rec = app.activeDocument.activeLayer.pathItems.rectangle( rNegTop, rLeft, rWidth, rHeight );
+  var rec = obj.parent.pathItems.rectangle( rNegTop, rLeft, rWidth, rHeight );
 
   rec.filled = true;
   rec.stroked = false;
-  rec.name = 'missing image';
   rec.fillColor = alertColor;
   rec.opacity = 50;
-  rec.zOrder(ZOrderMethod.SENDBACKWARD); 
-  rec.zOrder(ZOrderMethod.BRINGFORWARD); 
-
-  var imgDepth = getAlertDepth(obj);
-  var recDepth = rec.absoluteZOrderPosition;
-
-  var doc         = app.activeDocument;
-  var totalItems  = doc.pageItems.length;
-  var recPos      = totalItems - 1; // layer is topmost; higher numbers are in front of lower numbers
-
-  while (rec.absoluteZOrderPosition > imgDepth+1)
-    rec.zOrder(ZOrderMethod.SENDBACKWARD); 
-
-  for(var x=0; x<layerLocks.length; x++)
-    layerLocks[x][0].locked = layerLocks[x][1];
 
   return rec;
 }
-
-
-// one issue: if image is in group, rectangle is sent behind group
-// if parent.typeof=group...
 
 /*———————————————————————————————————————— hasEmbeds(doc)
 
@@ -574,7 +565,6 @@ function drawYellowRectangle(obj){
 function hasEmbeds(doc){
 
   var l = doc.fixEmbeddedImages.length;
-
   var fixes = [];  
 
   for (var x = l; x > 0; x--){
@@ -713,6 +703,38 @@ function getAlertDepth(img){
 
   alert('Group depth: '+obj.absoluteZOrderPosition);
   return obj.absoluteZOrderPosition;
+}
+
+/*———————————————————————————————————————— unlockHierarchy(obj)
+
+    unlocks the hierarchy above an element and returns an array
+
+    each element of the array is a sub array containing
+    [obj, obj.locked] */
+
+function unlockHierarchy(obj){
+
+  var parentLocks = [];
+  var thisParent = obj.parent;
+
+  while (thisParent.typename != 'Document'){
+    parentLocks[parentLocks.length] = [thisParent, thisParent.locked];
+    thisParent = thisParent.parent
+  }
+
+  for(var x=parentLocks.length-1; x>-1; x--)
+    parentLocks[x][0].locked = false;
+
+  return parentLocks;
+}
+
+/*———————————————————————————————————————— relockHierarchy(obj)
+
+    relocks elements unlocked by unlockHierarchy() */
+
+function relockHierarchy(arr){
+  for(var x=0; x<arr.length; x++)
+    arr[x][0].locked = arr[x][1];
 }
 
 
