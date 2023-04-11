@@ -51,6 +51,7 @@ program:{
 
   var d = new Date();
   var env_start_ms = d.getTime();
+  var fileSizes = []
 
 //———————————————————————————————————————— no open docs
 
@@ -61,17 +62,17 @@ if (app.documents.length < 1){
 
 /*———————————————————————————————————————— get param if standalone
 
-    save, all or canvas */
+    save or all */
 
 if (typeof param == 'undefined'){
 
-  var msg   = 'Please enter param\nsave  all  canvas';
+  var msg   = 'Please enter param\nsave  all';
 
   var param = prompt(msg, 'save');
   if (param == null)
     param = ''; 
 
-  const regex = /save|all|canvas/g;
+  const regex = /save|all/g;
   if(param.match(regex) === null){
     alert('Invalid Param\nSave operation canceled');
     break program;
@@ -89,11 +90,9 @@ var aiVersion = 0;                    // 0=default, 17=CC Legacy
 var aiOpts    = aiOptions(aiVersion);
 
 var single = param == 'all'    ? false : true; // save only frontmost doc?
-var canvas = param == 'canvas' ? true : false; // save entire canvas?
 
 //———————————————————————————————————————— "for" loop through documents
 
-var count = 0;
 var extraLayer = false;
 
 for (var index=0; index<docsOpen; index++){
@@ -101,7 +100,7 @@ for (var index=0; index<docsOpen; index++){
   app.activeDocument = appDocs[index];
   var sourceDoc      = app.activeDocument;
 
-  if (isValid(sourceDoc, canvas)){
+  if (isValid(sourceDoc)){
 
     if (sourceDoc.layers.length == 1){ // necessary so that resulting SVG
        sourceDoc.layers.add();         // won't have wrong ID
@@ -111,13 +110,20 @@ for (var index=0; index<docsOpen; index++){
     var activeBoard = sourceDoc.artboards.getActiveArtboardIndex();
     var pathOrig = sourceDoc.path + '/' + sourceDoc.name;
 
-    saveSVG(sourceDoc, canvas);
+    var theseSizes = saveSvg(sourceDoc);
   
     var aiFile = new File(pathOrig);
     sourceDoc.saveAs(aiFile, aiOpts);
 
+    //————————————————————————————————————————
+
+    theseSizes.unshift(aiFile.length)
+    theseSizes.unshift(sourceDoc.name)
+    fileSizes[fileSizes.length] = (theseSizes)
+
+    //————————————————————————————————————————
+
     sourceDoc.artboards.setActiveArtboardIndex(activeBoard);
-    count += 1;
 
     if (extraLayer) sourceDoc.layers[0].remove();
   }
@@ -130,7 +136,9 @@ for (var index=0; index<docsOpen; index++){
 if (!single)
   app.activeDocument = activeDoc;
 
-finalFeedback(count);
+app.beep()
+
+finalFeedback(fileSizes);
 
 //———————————————————————————————————————— ▲ } // program 
 
@@ -139,7 +147,7 @@ finalFeedback(count);
 
 //:::::::::::::::::::::::::::::::::::::::: main functions
 
-/*———————————————————————————————————————— saveSVG(doc, canvas)
+/*———————————————————————————————————————— saveSvg(doc)
 
   saves file as SVG:
 
@@ -153,8 +161,9 @@ finalFeedback(count);
   - if artboardName is given, use it as extension & save normally
   - else save using artboards */
 
-function saveSVG(doc, canvas){
-  if (doc.artboards.length == 1) canvas = true;
+function saveSvg(doc){
+  var includeCanvas = false;
+  if (doc.artboards.length == 1) includeCanvas = true;
 
   var layerInfo = deleteNonPrintingLayers(doc); // info about locked & visible
 
@@ -165,24 +174,23 @@ function saveSVG(doc, canvas){
 
   var sync = destPath.indexOf('/sync');
   destPath = destPath.substr(0,sync) + '/sync/Svija/SVG%20files';
-  var destFolder = Folder(destPath);
 
-  if (canvas)
-    var destFile = Folder(destPath+'/' + destName + '_' + doc.artboards[0].name + '.svg');
+  var destFolder = Folder(destPath);
+  var destFile = Folder(destPath+'/' + destName + '_' + doc.artboards[0].name + '.svg');
 
   //———————————————————————————————— avoid overwrite confirmations
 
-  for (j=0; j<doc.artboards.length; j++){
-    var name = destName + '_' + doc.artboards[j].name + '.svg';
+  for (x=0; x<doc.artboards.length; x++){
+    var name = destName + '_' + doc.artboards[x].name + '.svg';
     var file = newFile(destFolder, name);
     file.remove();
   }
 
   //———————————————————————————————— save svg files
 
-  var svgOpts = svgOptions(canvas);
+  var svgOpts = svgOptions(includeCanvas);
 
-  if (canvas)
+  if (includeCanvas)
     doc.exportFile(destFile,   ExportType.SVG, svgOpts);
   else
     doc.exportFile(destFolder, ExportType.SVG, svgOpts);
@@ -199,10 +207,22 @@ function saveSVG(doc, canvas){
     if (layerInfo[r] == 2 || layerInfo[r] == 3){doc.layers[r].visible = false;}
   }
 
-  return true;
+  //———————————————————————————————— get file sizes
+
+  var sizes = []
+
+  for (x=0; x<doc.artboards.length; x++){
+    var aName = doc.artboards[x].name
+    sizes.push(aName)
+
+    var destFile = destPath +'/'+destName+'_' + aName + '.svg';
+    sizes.push(File(destFile).length)
+  }
+
+  return sizes
 }
 
-/*———————————————————————————————————————— isValid(doc, canvas)
+/*———————————————————————————————————————— isValid(doc)
 
     three possible results:
     • everything's fine                 return true
@@ -213,10 +233,9 @@ function saveSVG(doc, canvas){
     env_warn = [];                   // warnings for user
 
     errors:
-    • file was not yet saved, user refuses to save
-    • save w/canvas, multiple artboards */
+    • file was not yet saved, user refuses to save */
 
-function isValid(doc, canvas){
+function isValid(doc){
   var err, warn;
 
   err = hasPath(doc);           // has file been saved at least once?
@@ -228,10 +247,6 @@ function isValid(doc, canvas){
     return dontSave(err);
 
   err = hasFolders(doc);        // is file in a /sync/ folder?
-  if (err != '')
-    return dontSave(err);
-
-  err = oneArtboard(doc, canvas); // if save-with-canvas, one artboard?
   if (err != '')
     return dontSave(err);
 
@@ -254,14 +269,15 @@ function isValid(doc, canvas){
   return true;
 }
 
-/*———————————————————————————————————————— finalFeedback(count)
+/*———————————————————————————————————————— finalFeedback(fileSizes)
 
     alert with:
     - elapsed time
     - errors (files not saved)
     - warnings (files saved) */
 
-function finalFeedback(count){
+function finalFeedback(fileSizes){
+  count = fileSizes.length
 
   var d = new Date();
   var ms = ' (' + (d.getTime()-env_start_ms) + ' ms)';
@@ -273,6 +289,9 @@ function finalFeedback(count){
   }
 
   var body = '';
+
+  if (fileSizes.length == 1)
+    body += '\n' + fileSizeReport(fileSizes)
 
   if (env_errs.length > 0)
     body += '\n' + env_errs.join('\n');
@@ -340,18 +359,6 @@ function hasFolders(doc){
 
   return '';
 }
-/*———————————————————————————————————————— oneArtboard(doc, canvas)
-
-    if save-with-canvas, is there only one?
-    returns '' or error message */
-
-function oneArtboard(doc, canvas){ // 
-  if (!canvas)                   return '';
-  if (doc.artboards.length == 1) return '';
-
-  return '"Save w/Canvas" requires a single artboard only';
-}
-
 /*———————————————————————————————————————— hasLinks(sourceDoc)
 
     has file been saved at least once?
@@ -386,7 +393,7 @@ function hasNonNative(doc){
 
 function hasEmbedded(doc){
   if (doc.rasterItems.length > 0)
-    return doc.name + ' contains embedded images — please run "Check & Repair"';
+    return doc.name + ' contains embedded images. Please run "Check & Repair"';
   else
     return '';
 }
@@ -406,7 +413,12 @@ function hasPlaced(doc){
     var img = doc.placedItems[0];
     if (!img.layer.printable) continue;
 
-    var imgPath = String(img.file); // ~/Captures/capture%2029.jpg
+    try{
+      var imgPath = String(img.file); // ~/Captures/capture%2029.jpg
+    }
+    catch(e){
+      return doc.name + ' contains an image with no source — please run "Check & Repair"';
+    }
 
     // if image path is shorter, image can't be in Links folder
     if (imgPath.length < linksPath.length+4) 
@@ -445,15 +457,15 @@ function newFile(folder, name) {
   return f;
 }
 
-/*———————————————————————————————————————— svgOptions(canvas)
+/*———————————————————————————————————————— svgOptions(includeCanvas)
 
   sets options for SVG file */
 
-function svgOptions(canvas){
+function svgOptions(includeCanvas){
 
   var options = new ExportOptionsSVG();
 
-  if (canvas)
+  if (includeCanvas)
     options.saveMultipleArtboards = false;                       // Preserves all artwork outside active artboard
   else
     options.saveMultipleArtboards = true;                        // Deletes all artwork outside active artboard
@@ -590,6 +602,52 @@ function getSync(){
     if (docPath.indexOf('/sync') > 0) return docPath + '/Page Name.ai';
   }
   return '~/Documents/Page Name.ai';
+}
+
+/*———————————————————————————————————————— makeMb(x)
+
+    givent a number of bytes, returns a value
+    in KB or MB for human consumption */
+
+function makeMb(x){
+
+  var ext = ' MB'
+  var div = 1000
+
+  if (x < 1000000){
+    ext = ' KB'
+    div = 1
+  }
+
+  x = Math.round(x / div / 1000 * 100)/100
+  return x + ext
+}
+
+/*———————————————————————————————————————— fileSizeReport(fileSizes)
+
+    returns a text snippet with file sizes */
+
+function fileSizeReport(fileSizes){
+
+  var thisFile = fileSizes[0]
+
+  var aiName = thisFile[0]
+  var aiSize = makeMb(thisFile[1])
+  var report
+
+  var svgSizes = []
+
+  for (var y=2; y<thisFile.length; y+=2){
+    var artbName = thisFile[y]
+    var svgSize = makeMb(thisFile[y+1])
+    svgSizes.push(' '+artbName+' page '+svgSize)
+  }
+
+  report  = svgSizes.join(' · ')
+  report += '\nIllustrator file '+aiSize
+
+  return report
+
 }
 
 

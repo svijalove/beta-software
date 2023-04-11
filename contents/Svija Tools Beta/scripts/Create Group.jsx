@@ -58,12 +58,17 @@ if (app.documents.length < 1){
 //———————————————————————————————————————— validate selection
 
   if (app.selection.length < 1){
-    alert('You must select at least one object.');
+    alert('Please select at least one object.');
     break program;
   }
 
   if (app.selection.length > 1){
-    alert('You must select only one object.');
+    alert('Please select only one object.');
+    break program;
+  }
+
+  if (app.selection[0].clipping){
+    alert('Cannot create group from Clipping Mask.');
     break program;
   }
 
@@ -113,7 +118,7 @@ function dumpKeys(obj){
 
   for (var i in obj){
     try{
-      str += '\n'+i+': '+obj[i];
+      str += '\n'+i+': '+obj[i]
     }
     catch(e){
       str += '\n'+i+': error';

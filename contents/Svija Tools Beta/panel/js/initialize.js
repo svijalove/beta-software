@@ -36,7 +36,7 @@ const actions = [
   //————— less
 
   [''                     , 'vibe.html?less.html' , ''      ], // top
-  ['Checking File…'       , 'Check.jsx'           , ''      ], // bot
+  ['Checking Page…'       , 'Check.jsx'           , ''      ], // bot
   ['Saving File…'         , 'Save.jsx'            , 'save'  ], // bot
 
   //————— more
@@ -47,7 +47,7 @@ const actions = [
   ['Creating Group…'      , 'Create Group.jsx'    , ''      ], // 2nd
   ['Importing Styles…'    , 'Import Styles.jsx'   , ''      ], // 2nd
 
-  ['Checking File…'       , 'Check.jsx'           , ''      ], // 3rd
+  ['Checking Page……'      , 'Check.jsx'           , ''      ], // 3rd
 
 //['Saving File…'         , 'Save.jsx'            , 'canvas'], // bot
   ['Saving Files…'        , 'Save.jsx'            , 'all'   ], // bot
@@ -65,7 +65,7 @@ const env_path = csif.getSystemPath(SystemPath.EXTENSION) + '/scripts/';
 csif.setWindowTitle(title);
 
 if (typeof more != 'undefined')
-  setCookie('more', more);
+  setCookie('more', more, 30);
 
 var parts = document.URL.split('/');
 var url = parts[parts.length-1];

@@ -277,7 +277,7 @@ function artboardSizes(doc){
     var w = doc.artboards[x].artboardRect[2]-doc.artboards[x].artboardRect[0];
 
     if (!isRoundNumber(w))
-      return doc.name + ' has ' + w + 'px wide artboard; see Svija Cloud screen settings';
+      return doc.name + ' has ' + w + 'px wide artboard (must match page or screen settings)';
   }
 
   return '';
@@ -390,8 +390,8 @@ function fixEmbeddedImage(img){
     img.remove();
   }
 
-
   relockHierarchy(parentLocks)
+
   return [imgName, success, msg];
 }
 
@@ -427,6 +427,20 @@ function fixPlacedImage(img){
   var neme     = img.file.name;
   var destPath = linksFolder+'/'+neme;
 
+/*
+
+if (neme != 'Animation%20-%20Button%20Shadow.png')
+  alert(neme + ' : '+destPath)
+
+Animation%20-%20Groups%20and%20Animations%201.jpg    : ~/Desktop/eman-int.svija.site/sync/Links/Animation%20-%20Groups%20and%20Animations%201.jpg
+Animation%20-%20Groups%20and%20Animations%202.jpg    : ~/Desktop/eman-int.svija.site/sync/Links/Animation%20-%20Groups%20and%20Animations%202.jpg
+Animation%20-%20Svija%20Vibe%20Shadow.png            : ~/Desktop/eman-int.svija.site/sync/Links/Animation%20-%20Svija%20Vibe%20Shadow.png
+Animation%20-%20Pointer.ai                           : ~/Desktop/eman-int.svija.site/sync/Links/Animation%20-%20Pointer.ai
+Animation%20-%20Layers%20Panel%20Trigger%20Event.jpg : ~/Desktop/eman-int.svija.site/sync/Links/Animation%20-%20Layers%20Panel%20Trigger%20Event.jpg
+Animation%20-%20Svija%20Vibe%20Shadow.png            : ~/Desktop/eman-int.svija.site/sync/Links/Animation%20-%20Svija%20Vibe%20Shadow.png
+
+*/
+
   //———————————————————— is it a cloud image?
 
   var isCloud = String(img.file).indexOf('/Creative%20Cloud%20Libraries/');
@@ -436,26 +450,37 @@ function fixPlacedImage(img){
     destPath = linksFolder + '/' + neme;
   }
 	
-  //———————————————————— continue
+  //———————————————————— continue PROBLEM IS HERE
 
   var newFile = new File(destPath); // hypothetical until we actually create it
 
   // we copy file to /Links, then if it was with AI file, we delete original
   // changing the "copy" to a "move"
 
-  if(newFile.exists) var msg = 'link corrected';
+/*
+if (neme != 'Animation%20-%20Button%20Shadow.png')
+  alert(newFile.exists)
+
+answers are correct */
+
+  if(newFile.exists) var msg = 'link corrected'; /* seems to work — copies files in finder, but AI file is untouched */
   else{
     img.file.copy(newFile);
     var msg = 'copied to "Links" folder';
   }
 
-  // if the file was in Ai folder we delete orig
+  // if the file was in Ai folder we delete orig      SEEMS TO WORK — NOT USED IN THIS CASE
   if (thisFolder == currentFolder){
     img.file.remove();
     var msg = 'moved to "Links" folder';
   }
 
+  var parentLocks = unlockHierarchy(img);
+
   img.file = newFile;
+
+  relockHierarchy(parentLocks)
+
   return [neme, true, msg];
 }
 
@@ -469,7 +494,14 @@ function fixPlacedImage(img){
 function checkImageExt(img){
   if (!img.layer.printable) return [];
 
-  var parts = String(img.file).split('.');
+  try{
+    var parts = String(img.file).split('.');
+  }
+  catch(e){
+    drawYellowRectangle(img)
+    return ['Unknown image', false, 'has no file'];
+  }
+
   var ext = parts[parts.length - 1];
   var neme = img.file.name;
 
@@ -493,7 +525,8 @@ function checkImageExt(img){
 function alertUser(doc){
 
   var d = new Date();
-  var ms = ' (' + (d.getTime()-env_start_ms) + ' ms)';
+  var ms = (d.getTime()-env_start_ms)
+  var fileSize = getFileSize(doc)
 
   var title = doc.name;
   var bodyParts = [];
@@ -521,7 +554,7 @@ function alertUser(doc){
   body = bodyParts.join('\n\n');
   var msg = decodeURI(title + '\n' + body);
 
-  showResults = confirm(doc.name + ' verified' + ms + '\nShow report?');
+  showResults = confirm(doc.name + ' verified\n' + fileSize + ' MB in ' + ms + ' ms — show report?');
   if (showResults) alert(msg);
 }
 
@@ -553,6 +586,7 @@ function drawYellowRectangle(obj){
   rec.stroked = false;
   rec.fillColor = alertColor;
   rec.opacity = 50;
+  rec.name = 'UNFIXABLE IMAGE'
 
   return rec;
 }
@@ -677,7 +711,7 @@ function dumpKeys(obj){
 
   for (var i in obj){
     try{
-      str += '\n'+i+': '+obj[i].typename;
+      str += '\n'+i+': '+obj[i]
     }
     catch(e){
       str += '\n'+i+': error';
@@ -735,6 +769,21 @@ function unlockHierarchy(obj){
 function relockHierarchy(arr){
   for(var x=0; x<arr.length; x++)
     arr[x][0].locked = arr[x][1];
+}
+
+/*———————————————————————————————————————— check file size
+
+// page.path = parent folder
+// page.name = filename
+// together is full pagh */
+
+function getFileSize(page){
+  try{
+    var ref = File(page.path+'/'+page.name)
+    var fileSize = Math.round(ref.length / 1000 / 1000 * 100)/100
+    return fileSize
+  }
+  catch(e){ return -1 }
 }
 
 
